@@ -76,32 +76,9 @@ func (o explicitBoundariesOption) apply(config *config) {
 	config.explicitBoundaries = o.boundaries
 }
 
-// defaultExplicitBoundaries have been copied from prometheus.DefBuckets.
-//
-// Note we anticipate the use of a high-precision histogram sketch as
-// the standard histogram aggregator for OTLP export.
-// (https://github.com/open-telemetry/opentelemetry-specification/issues/982).
-var defaultFloat64ExplicitBoundaries = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+// https://opentelemetry.io/docs/reference/specification/metrics/sdk/#explicit-bucket-histogram-aggregation
+var defaultExplicitBoundaries = []float64{0, 5, 10, 25, 50, 75, 100, 250, 500, 1000}
 
-// defaultInt64ExplicitBoundaryMultiplier determines the default
-// integer histogram boundaries.
-const defaultInt64ExplicitBoundaryMultiplier = 1e6
-
-// defaultInt64ExplicitBoundaries applies a multiplier to the default
-// float64 boundaries: [ 5K, 10K, 25K, ..., 2.5M, 5M, 10M ].
-var defaultInt64ExplicitBoundaries = func(bounds []float64) (asint []float64) {
-	for _, f := range bounds {
-		asint = append(asint, defaultInt64ExplicitBoundaryMultiplier*f)
-	}
-	return
-}(defaultFloat64ExplicitBoundaries)
-
-var _ aggregator.Aggregator = &Aggregator{}
-var _ aggregation.Sum = &Aggregator{}
-var _ aggregation.Count = &Aggregator{}
-var _ aggregation.Histogram = &Aggregator{}
-
-// New returns a new aggregator for computing Histograms.
 //
 // A Histogram observe events and counts them in pre-defined buckets.
 // And also provides the total sum and count of all observations.
@@ -112,11 +89,7 @@ var _ aggregation.Histogram = &Aggregator{}
 func New(cnt int, desc *sdkapi.Descriptor, opts ...Option) []Aggregator {
 	var cfg config
 
-	if desc.NumberKind() == number.Int64Kind {
-		cfg.explicitBoundaries = defaultInt64ExplicitBoundaries
-	} else {
-		cfg.explicitBoundaries = defaultFloat64ExplicitBoundaries
-	}
+	cfg.explicitBoundaries = defaultExplicitBoundaries
 
 	for _, opt := range opts {
 		opt.apply(&cfg)
@@ -220,6 +193,12 @@ func (c *Aggregator) clearState() {
 
 // Update adds the recorded measurement to the current data set.
 func (c *Aggregator) Update(_ context.Context, n number.Number, desc *sdkapi.Descriptor) error {
+
+	// The API does not accept negative numbers.
+	if n < 0 {
+		return nil
+	}
+
 	kind := desc.NumberKind()
 	asFloat := n.CoerceToFloat64(kind)
 

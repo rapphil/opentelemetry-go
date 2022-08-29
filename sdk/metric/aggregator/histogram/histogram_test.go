@@ -252,17 +252,16 @@ func TestHistogramDefaultBoundaries(t *testing.T) {
 
 		agg, ckpt := new2(descriptor)
 
-		bounds := []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10} // len 11
-		values := append(bounds, 100)                                         // len 12
-		expect := []uint64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}                // len 12
+		bounds := []float64{0, 5, 10, 25, 50, 75, 100, 250, 500, 1000} // len 10
+		values := append(bounds, 10000)                                // len 11
+		expect := []uint64{0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2}            // len 11
 
 		for _, value := range values {
 			var num number.Number
 
-			value -= .001 // Avoid exact boundaries
+			value += .001 // Avoid exact boundaries
 
 			if descriptor.NumberKind() == number.Int64Kind {
-				value *= 1e6
 				num = number.NewInt64Number(int64(value))
 			} else {
 				num = number.NewFloat64Number(value)
